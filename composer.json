@@ -1,0 +1,34 @@
+{
+    "name": "thruway/raw-socket-transport",
+    "type": "library",
+    "description": "Raw Socket Transport for Thruway",
+    "keywords": [
+        "Server",
+        "Client",
+        "WAMP",
+        "WAMP2",
+        "Autobahn",
+        "Sockets",
+        "thruway"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Matt Bonneau", "email": "matt@bonneau.net", "role": "Developer"
+        },
+
+        {
+            "name": "David Dan", "email": "davidwdan@gmail.com", "role": "Developer"
+        }
+    ],
+    "require": {
+    },
+    "autoload": {
+        "psr-4": {
+            "Thruway\\Transport\\": "src/"
+        }
+    },
+    "require-dev": {
+        "voryx/thruway": "ratchet-0.4-dev"
+    }
+}
