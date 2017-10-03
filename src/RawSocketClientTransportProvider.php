@@ -62,7 +62,7 @@ class RawSocketClientTransportProvider extends AbstractClientTransportProvider
 
         $connector->connect($this->address . ':' . $this->port)->then(function (ConnectionInterface $connection) {
             $connection->on('data', [$this, 'handleData']);
-            $connection->on('close', $this->handleClose($connection));
+            $connection->on('close', [$this, 'handleClose']);
             $this->handleConnection($connection);
         });
     }
@@ -98,13 +98,10 @@ class RawSocketClientTransportProvider extends AbstractClientTransportProvider
 
     /**
      * Handle process on close connection
-     * @param ConnectionInterface $conn
      * @return \Closure
      */
-    public function handleClose(ConnectionInterface $conn)
+    public function handleClose()
     {
-        return function () use ($conn) {
-            $this->client->onClose($this->transport);
-        };
+        $this->client->onClose($this->transport);
     }
 }
