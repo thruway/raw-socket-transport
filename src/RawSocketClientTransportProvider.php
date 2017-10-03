@@ -3,8 +3,9 @@
 namespace Thruway\Transport;
 
 use React\EventLoop\LoopInterface;
-use React\SocketClient\Connector;
-use React\Stream\Stream;
+use React\Socket\ConnectionInterface;
+use React\Socket\Connector;
+use React\Socket\ConnectorInterface;
 use Thruway\Peer\ClientInterface;
 use Thruway\Serializer\JsonSerializer;
 
@@ -27,18 +28,24 @@ class RawSocketClientTransportProvider extends AbstractClientTransportProvider
      */
     private $port;
 
+    /**
+     * @var ConnectorInterface
+     */
+    private $connector;
 
     /**
      * Constructor
      *
      * @param string $address
      * @param int $port
+     * @param ConnectorInterface|null $connector
      */
-    function __construct($address = "127.0.0.1", $port = 8181)
+    public function __construct($address = '127.0.0.1', $port = 8181, ConnectorInterface $connector = null)
     {
         $this->address   = $address;
         $this->port      = $port;
         $this->transport = null;
+        $this->connector = $connector;
     }
 
     /**
@@ -50,26 +57,21 @@ class RawSocketClientTransportProvider extends AbstractClientTransportProvider
     public function startTransportProvider(ClientInterface $client, LoopInterface $loop)
     {
         $this->client = $client;
-        $this->loop = $loop;
+        $this->loop   = $loop;
+        $connector    = $this->connector ?: new Connector($loop);
 
-        $dnsResolverFactory = new \React\Dns\Resolver\Factory();
-        $dns                = $dnsResolverFactory->createCached('8.8.8.8', $loop);
-
-        $connector = new Connector($loop, $dns);
-
-        $connector->create($this->address, $this->port)->then(function (Stream $stream) {
-            $stream->on('data', [$this, "handleData"]);
-            $stream->on('close', [$this, "handleClose"]);
-            $this->handleConnection($stream);
+        $connector->connect($this->address . ':' . $this->port)->then(function (ConnectionInterface $connection) {
+            $connection->on('data', [$this, 'handleData']);
+            $connection->on('close', $this->handleClose($connection));
+            $this->handleConnection($connection);
         });
     }
 
     /**
      * Handle process on open new connection
-     *
-     * @param \React\Stream\Stream $conn
+     * @param ConnectionInterface $conn
      */
-    public function handleConnection(Stream $conn)
+    public function handleConnection(ConnectionInterface $conn)
     {
         //$this->getManager()->debug("Raw socket opened");
 
@@ -88,20 +90,21 @@ class RawSocketClientTransportProvider extends AbstractClientTransportProvider
      * Handle process reveiced data
      *
      * @param mixed $data
-     * @param \React\Stream\Stream $conn
      */
-    public function handleData($data, Stream $conn)
+    public function handleData($data)
     {
         $this->transport->handleData($data);
     }
 
     /**
      * Handle process on close connection
-     *
-     * @param \React\Stream\Stream $conn
+     * @param ConnectionInterface $conn
+     * @return \Closure
      */
-    public function handleClose(Stream $conn)
+    public function handleClose(ConnectionInterface $conn)
     {
-        $this->client->onClose($this->transport);
+        return function () use ($conn) {
+            $this->client->onClose($this->transport);
+        };
     }
 }

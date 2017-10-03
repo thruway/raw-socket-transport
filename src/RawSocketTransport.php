@@ -5,7 +5,7 @@ namespace Thruway\Transport;
 use Evenement\EventEmitterInterface;
 use Evenement\EventEmitterTrait;
 use React\EventLoop\LoopInterface;
-use React\Stream\Stream;
+use React\Socket\ConnectionInterface;
 use Thruway\Logging\Logger;
 use Thruway\Message\Message;
 use Thruway\Peer\PeerInterface;
@@ -21,9 +21,6 @@ class RawSocketTransport extends AbstractTransport implements EventEmitterInterf
 {
     use EventEmitterTrait;
 
-    /**
-     * @var \React\Stream\Stream
-     */
     private $conn;
 
     /**
@@ -53,17 +50,17 @@ class RawSocketTransport extends AbstractTransport implements EventEmitterInterf
     /**
      * Constructor
      *
-     * @param \React\Stream\Stream $conn
+     * @param ConnectionInterface $conn
      * @param \React\EventLoop\LoopInterface $loop
      * @param \Thruway\Peer\PeerInterface $peer
      */
-    public function __construct(Stream $conn, LoopInterface $loop, PeerInterface $peer)
+    public function __construct(ConnectionInterface $conn, LoopInterface $loop, PeerInterface $peer)
     {
         $this->conn = $conn;
         $this->loop = $loop;
         $this->peer = $peer;
 
-        $this->buffer = "";
+        $this->buffer = '';
         $this->msgLen = 0;
 
         $this->handshakeByte = 0;
@@ -77,25 +74,21 @@ class RawSocketTransport extends AbstractTransport implements EventEmitterInterf
      */
     public function handleData($data)
     {
-//        if ($this->handshakeByte == 0) {
-//            $this->handshakeByte = $data[0];
-//            $data = substr($data, 1);
-//        }
-        $this->buffer = $this->buffer . $data;
+        $this->buffer .= $data;
 
         $bufferLen = strlen($this->buffer);
 
         while ($bufferLen > 0 && $bufferLen >= $this->msgLen) {
-            if ($this->msgLen == 0) {
+            if ($this->msgLen === 0) {
                 // the next 4 bytes are going to be the msglen
                 if ($bufferLen >= 4) {
-                    $this->msgLen = array_values(unpack("N", $this->buffer))[0];
+                    $this->msgLen = array_values(unpack('N', $this->buffer))[0];
                     if ($this->msgLen <= 0) {
-                        Logger::error("Invalid message size sent");
+                        Logger::error('Invalid message size sent');
                         $this->close();
                     }
                     // shift off the first 4 bytes
-                    $bufferLen    = $bufferLen - 4;
+                    $bufferLen    -= 4;
                     $this->buffer = substr($this->buffer, 4, $bufferLen);
                 } else {
                     // we don't have enough to get the message length
@@ -107,14 +100,14 @@ class RawSocketTransport extends AbstractTransport implements EventEmitterInterf
                 $msg = $this->getSerializer()->deserialize(substr($this->buffer, 0, $this->msgLen));
 
                 //$this->peer->onMessage($this, $msg);
-                $this->emit("message", [$this, $msg]);
+                $this->emit('message', [$this, $msg]);
 
-                if ($bufferLen == $this->msgLen) {
-                    $this->buffer = "";
+                if ($bufferLen === $this->msgLen) {
+                    $this->buffer = '';
                     $this->msgLen = 0;
                     $bufferLen    = 0;
                 } else {
-                    $bufferLen    = $bufferLen - $this->msgLen;
+                    $bufferLen    -= $this->msgLen;
                     $this->buffer = substr($this->buffer, $this->msgLen, $bufferLen);
                     $this->msgLen = 0;
                 }
@@ -125,7 +118,6 @@ class RawSocketTransport extends AbstractTransport implements EventEmitterInterf
     /**
      * Get connection
      *
-     * @return \React\Stream\Stream
      */
     public function getConn()
     {
@@ -141,8 +133,8 @@ class RawSocketTransport extends AbstractTransport implements EventEmitterInterf
     public function getTransportDetails()
     {
         return [
-            "type"             => "raw",
-            "transport_address" => $this->getConn()->getRemoteAddress()
+            'type'              => 'raw',
+            'transport_address' => $this->getConn()->getRemoteAddress()
         ];
     }
 
@@ -158,7 +150,7 @@ class RawSocketTransport extends AbstractTransport implements EventEmitterInterf
         $msgLen = strlen($serializedMsg);
 
         // need to pack the msgLen in a 32 bit binary string
-        $packedMsgLen = pack("N", $msgLen);
+        $packedMsgLen = pack('N', $msgLen);
 
         $this->getConn()->write($packedMsgLen);
         $this->getConn()->write($serializedMsg);
@@ -171,5 +163,4 @@ class RawSocketTransport extends AbstractTransport implements EventEmitterInterf
     {
         $this->getConn()->close();
     }
-
 }
