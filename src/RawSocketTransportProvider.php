@@ -74,7 +74,7 @@ class RawSocketTransportProvider extends AbstractRouterTransportProvider
             $session->dispatchMessage($msg);
         });
 
-        $this->router->getEventDispatcher()->dispatch('connection_open', new ConnectionOpenEvent($session));
+        $this->router->getEventDispatcher()->backwardsCompatibleDispatch(new ConnectionOpenEvent($session), 'connection_open');
 
         $conn->on('data', [$transport, 'handleData']);
         $conn->on('close', $this->handleClose($conn));
@@ -92,7 +92,7 @@ class RawSocketTransportProvider extends AbstractRouterTransportProvider
             $session = $this->sessions[$conn];
             $this->sessions->detach($conn);
 
-            $this->router->getEventDispatcher()->dispatch('connection_close', new ConnectionCloseEvent($session));
+            $this->router->getEventDispatcher()->backwardsCompatibleDispatch(new ConnectionCloseEvent($session), 'connection_close');
         };
     }
 
